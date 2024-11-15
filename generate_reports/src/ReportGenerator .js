@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TextField, MenuItem, Select, InputLabel, FormControl, Button, Box, Typography, Container, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, CircularProgress } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import axios from 'axios';
 
 const GenerateReports = () => {
     const [period, setPeriod] = useState('');
@@ -10,45 +11,38 @@ const GenerateReports = () => {
     const [selectedYear, setSelectedYear] = useState('');
     const [fromDate, setFromDate] = useState(null);
     const [toDate, setToDate] = useState(null);
-    const [employee, setEmployee] = useState('');
+    const [employee, setEmployee] = useState([]);
     const [employees, setEmployees] = useState([]);
-    const [category, setCategory] = useState([]);  // Adjusted to support multiple selections
+    const [category, setCategory] = useState([]);
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    // Fetch employees for the dropdown
     useEffect(() => {
-        fetch(`https://localhost:7169/api/Employee`)
-            .then(response => {
-                if (!response.ok) throw new Error("Failed to fetch employees");
-                return response.json();
-            })
-            .then(data => setEmployees(data))
+        axios.get('https://localhost:7169/api/Employee')
+            .then(response => setEmployees(response.data))
             .catch(error => console.error('Error fetching employees:', error));
     }, []);
 
     const handleGenerateReport = () => {
         setLoading(true);
         const params = {
-            category: category.join(','), // Convert array of selected categories to a comma-separated string
-            employeeId: employee,
+            category: category.join(','),
+            employeeIds: employee.length > 0 ? employee : [],
             period: period,
             month: selectedMonth,
             quarter: selectedQuarter,
             year: selectedYear,
-            fromDate: fromDate ? fromDate.toISOString() : '',  // Convert to ISO format if a date is selected
-            toDate: toDate ? toDate.toISOString() : ''
+            fromDate: fromDate ? fromDate.toISOString() : null,
+            toDate: toDate ? toDate.toISOString() : null
         };
 
-        fetch(`https://localhost:7138/api/Reports/generateReport?${new URLSearchParams(params)}`)
+        axios.post('https://localhost:7138/api/Reports/generateReport', params)
             .then(response => {
-                if (!response.ok) throw new Error("Failed to generate report");
-                return response.json();
+                setReports(response.data);
             })
-            .then(data => {
-                setReports(data);
+            .catch(error => {
+                console.error('Error generating report:', error);
             })
-            .catch(error => console.error('Error generating report:', error))
             .finally(() => setLoading(false));
     };
 
@@ -167,16 +161,21 @@ const GenerateReports = () => {
                     </LocalizationProvider>
                 </Box>
             )}
-
             <FormControl fullWidth margin="normal">
-                <InputLabel>Employee</InputLabel>
-                <Select value={employee} onChange={(e) => setEmployee(e.target.value)}>
-                    <MenuItem value="">All Employees</MenuItem>
+                <InputLabel>Select Employees</InputLabel>
+                <Select
+                    multiple
+                    value={employee}
+                    onChange={(e) => setEmployee(e.target.value)}
+                    renderValue={(selected) => selected.map(id => employees.find(emp => emp.id === id)?.name).join(', ')}
+                >
+                    {/* <MenuItem value="">All Employees</MenuItem> */}
                     {employees.map(emp => (
                         <MenuItem key={emp.id} value={emp.id}>{emp.name}</MenuItem>
                     ))}
                 </Select>
             </FormControl>
+
 
             {/* Generate Report Button */}
             <Button variant="contained" color="primary" onClick={handleGenerateReport} fullWidth>
