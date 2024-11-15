@@ -9,6 +9,9 @@ const GenerateReports = () => {
     const [selectedMonth, setSelectedMonth] = useState('');
     const [selectedQuarter, setSelectedQuarter] = useState('');
     const [selectedYear, setSelectedYear] = useState('');
+    const [selectionType, setSelectionType] = useState('all'); // State for Employee Selection Type
+    const [selectedEmployee, setSelectedEmployee] = useState('');
+    const [team, setTeam] = useState([]);
     const [fromDate, setFromDate] = useState(null);
     const [toDate, setToDate] = useState(null);
     const [employee, setEmployee] = useState([]);
@@ -26,14 +29,21 @@ const GenerateReports = () => {
     const handleGenerateReport = () => {
         setLoading(true);
         const params = {
-            category: category.join(','),
-            employeeIds: employee.length > 0 ? employee : [],
+            // category: category.join(','),
+            categories: category.length > 0 ? category : [],
+            // employeeIds: employee.length > 0 ? employee : [],
             period: period,
             month: selectedMonth,
             quarter: selectedQuarter,
             year: selectedYear,
             fromDate: fromDate ? fromDate.toISOString() : null,
-            toDate: toDate ? toDate.toISOString() : null
+            toDate: toDate ? toDate.toISOString() : null,
+            employeeSelection: selectionType,
+            employeeIds: selectionType === 'all'
+                ? employees.map(emp => emp.id)
+                : selectionType === 'individual'
+                    ? [selectedEmployee]
+                    : team,
         };
 
         axios.post('https://localhost:7138/api/Reports/generateReport', params)
@@ -64,10 +74,8 @@ const GenerateReports = () => {
                 >
                     <MenuItem value="webinars">Webinars</MenuItem>
                     <MenuItem value="blogs">Blogs</MenuItem>
-                    <MenuItem value="projects">Projects</MenuItem>
-                    <MenuItem value="sow">Statements of Work</MenuItem>
-                    <MenuItem value="technology">Technology</MenuItem>
-                    <MenuItem value="employee">Employee</MenuItem>
+                    <MenuItem value="certifications">Certifications</MenuItem>
+                    <MenuItem value="pocs">POCs</MenuItem>
                 </Select>
             </FormControl>
 
@@ -161,20 +169,56 @@ const GenerateReports = () => {
                     </LocalizationProvider>
                 </Box>
             )}
+            {/* Employee Selection */}
             <FormControl fullWidth margin="normal">
-                <InputLabel>Select Employees</InputLabel>
+                <InputLabel>Employee Selection</InputLabel>
                 <Select
-                    multiple
-                    value={employee}
-                    onChange={(e) => setEmployee(e.target.value)}
-                    renderValue={(selected) => selected.map(id => employees.find(emp => emp.id === id)?.name).join(', ')}
+                    value={selectionType}
+                    onChange={(e) => setSelectionType(e.target.value)}
                 >
-                    {/* <MenuItem value="">All Employees</MenuItem> */}
-                    {employees.map(emp => (
-                        <MenuItem key={emp.id} value={emp.id}>{emp.name}</MenuItem>
-                    ))}
+                    <MenuItem value="all">All Employees</MenuItem>
+                    <MenuItem value="individual">Individual</MenuItem>
+                    <MenuItem value="team">Team</MenuItem>
                 </Select>
             </FormControl>
+
+            {/* Individual Employee Selection */}
+            {selectionType === 'individual' && (
+                <FormControl fullWidth margin="normal">
+                    <InputLabel>Select Employee</InputLabel>
+                    <Select
+                        value={selectedEmployee}
+                        onChange={(e) => setSelectedEmployee(e.target.value)}
+                    >
+                        {employees.map(emp => (
+                            <MenuItem key={emp.id} value={emp.id}>
+                                {emp.name}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+            )}
+
+            {/* Team Selection */}
+            {selectionType === 'team' && (
+                <FormControl fullWidth margin="normal">
+                    <InputLabel>Select Team Members</InputLabel>
+                    <Select
+                        multiple
+                        value={team}
+                        onChange={(e) => setTeam(e.target.value)}
+                        renderValue={(selected) =>
+                            selected.map(id => employees.find(emp => emp.id === id)?.name).join(', ')
+                        }
+                    >
+                        {employees.map(emp => (
+                            <MenuItem key={emp.id} value={emp.id}>
+                                {emp.name}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+            )}
 
 
             {/* Generate Report Button */}
@@ -201,6 +245,7 @@ const GenerateReports = () => {
                                 <TableCell>Title</TableCell>
                                 <TableCell>Employee Name</TableCell>
                                 <TableCell>Created Date</TableCell>
+                                <TableCell>Category</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -213,6 +258,7 @@ const GenerateReports = () => {
                                         <TableCell>{report.title}</TableCell>
                                         <TableCell>{employee.name}</TableCell> {/* Display the name or 'Unknown' if not found */}
                                         <TableCell>{new Date(report.createdDate).toLocaleDateString()}</TableCell>
+                                        <TableCell>{report.category}</TableCell>
                                     </TableRow>
                                 );
                             })}
